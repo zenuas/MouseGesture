@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30621.155
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MouseGesture", "src\MouseGesture.csproj", "{F7FB009E-C7A0-48C5-B019-1919F684C1D2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F7FB009E-C7A0-48C5-B019-1919F684C1D2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F7FB009E-C7A0-48C5-B019-1919F684C1D2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F7FB009E-C7A0-48C5-B019-1919F684C1D2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F7FB009E-C7A0-48C5-B019-1919F684C1D2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4C1321E1-9A05-4622-939F-7078E876CF66}
+	EndGlobalSection
+EndGlobal
