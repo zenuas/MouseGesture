@@ -18,6 +18,7 @@ namespace MouseGesture
         static IState CurrentState = Root;
         static Point LastCursorPosition = new Point();
         static bool EventFired = false;
+        static Timer TimerEvent = new Timer();
 
         [STAThread]
         public static void Main(string[] args)
@@ -40,10 +41,22 @@ namespace MouseGesture
             _ = AddMouseMove(r, MouseMoveAction.StrokeDirection.Right, () => Debug.WriteLine("Move Right"));
             Root.Nexts.Add(r);
 
-            var hInstance = Kernel32.GetModuleHandle(null);
-            NextMouseHook = User32.SetWindowsHookEx(SETWINDOWSHOOKCODES.WH_MOUSE_LL, MouseHookProc, hInstance, 0);
+            TimerEvent.Interval = 50;
+            TimerEvent.Tick += new EventHandler(TimerProc);
+            TimerEvent.Enabled = true;
+
+            var hinst = Kernel32.GetModuleHandle(null);
+            NextMouseHook = User32.SetWindowsHookEx(SETWINDOWSHOOKCODES.WH_MOUSE_LL, MouseHookProc, hinst, 0);
 
             Application.Run(new Form());
+        }
+
+        public static void TimerProc(object? sender, EventArgs e)
+        {
+            lock (TimerEvent)
+            {
+                LastCursorPosition = Cursor.Position;
+            }
         }
 
         public static IState AddMouseMove(IState r, MouseMoveAction.StrokeDirection stroke, Action release_action)
@@ -69,47 +82,50 @@ namespace MouseGesture
 
         public static int MouseHookProc(HOOKCODES nCode, WM_MESSAGE wParam, IntPtr lParam)
         {
-            if (nCode >= HOOKCODES.HC_ACTION)
+            lock (TimerEvent)
             {
-                List<IState>? nexts = null;
-                switch (wParam)
+                if (nCode >= HOOKCODES.HC_ACTION)
                 {
-                    case WM_MESSAGE.WM_MOUSEWHEEL:
-                    case WM_MESSAGE.WM_XBUTTONDOWN:
-                    case WM_MESSAGE.WM_XBUTTONUP:
-                    case WM_MESSAGE.WM_XBUTTONDBLCLK:
-                    case WM_MESSAGE.WM_NCXBUTTONDOWN:
-                    case WM_MESSAGE.WM_NCXBUTTONUP:
-                    case WM_MESSAGE.WM_NCXBUTTONDBLCLK:
+                    List<IState>? nexts = null;
+                    switch (wParam)
+                    {
+                        case WM_MESSAGE.WM_MOUSEWHEEL:
+                        case WM_MESSAGE.WM_XBUTTONDOWN:
+                        case WM_MESSAGE.WM_XBUTTONUP:
+                        case WM_MESSAGE.WM_XBUTTONDBLCLK:
+                        case WM_MESSAGE.WM_NCXBUTTONDOWN:
+                        case WM_MESSAGE.WM_NCXBUTTONUP:
+                        case WM_MESSAGE.WM_NCXBUTTONDBLCLK:
 
-                        var p = PtrToStructure<MSLLHOOKSTRUCT>(lParam);
-                        nexts = wParam == WM_MESSAGE.WM_MOUSEWHEEL
-                            ? CurrentState.Nexts.Where(x => ChooseAction(x.Action, DeltaToWheelDirection(p.mouseData.wheeldelta.delta))).ToList()
-                            : CurrentState.Nexts.Where(x => ChooseAction(x.Action, wParam, p.mouseData.xbutton.type)).ToList();
-                        break;
+                            var p = PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+                            nexts = wParam == WM_MESSAGE.WM_MOUSEWHEEL
+                                ? CurrentState.Nexts.Where(x => ChooseAction(x.Action, DeltaToWheelDirection(p.mouseData.wheeldelta.delta))).ToList()
+                                : CurrentState.Nexts.Where(x => ChooseAction(x.Action, wParam, p.mouseData.xbutton.type)).ToList();
+                            break;
 
-                    case WM_MESSAGE.WM_MOUSEMOVE:
-                        nexts = CurrentState.Nexts.Where(x => ChooseAction(x.Action, LastCursorPosition, Cursor.Position)).ToList();
-                        break;
+                        case WM_MESSAGE.WM_MOUSEMOVE:
+                            nexts = CurrentState.Nexts.Where(x => ChooseAction(x.Action, LastCursorPosition, Cursor.Position)).ToList();
+                            break;
 
-                    default:
-                        nexts = CurrentState.Nexts.Where(x => ChooseAction(x.Action, wParam)).ToList();
-                        break;
-                }
-                if ((nexts is null || nexts.Count == 0) && TopState is { } && ChooseAction(TopState.Release, wParam))
-                {
-                    if (ReleaseState()) return 1;
-                }
-                else if (nexts is { } && nexts.Count > 0)
-                {
-                    if (TopState is null) TopState = nexts.First().Cast<HoldState>();
-                    var prev = LastCursorPosition;
-                    LastCursorPosition = Cursor.Position;
+                        default:
+                            nexts = CurrentState.Nexts.Where(x => ChooseAction(x.Action, wParam)).ToList();
+                            break;
+                    }
+                    if ((nexts is null || nexts.Count == 0) && TopState is { } && ChooseAction(TopState.Release, wParam))
+                    {
+                        if (ReleaseState()) return 1;
+                    }
+                    else if (nexts is { } && nexts.Count > 0)
+                    {
+                        if (TopState is null) TopState = nexts.First().Cast<HoldState>();
+                        var prev = LastCursorPosition;
+                        LastCursorPosition = Cursor.Position;
 
-                    var continued = false;
-                    nexts.By<IEvent>().Each(x => { EventFired = true; x.Fire(); continued = x is LockerState || continued; });
-                    if (!continued) CurrentState = nexts.First();
-                    return 1;
+                        var continued = false;
+                        nexts.By<IEvent>().Each(x => { EventFired = true; x.Fire(); continued = x is LockerState || continued; });
+                        if (!continued) CurrentState = nexts.First();
+                        return 1;
+                    }
                 }
             }
             return User32.CallNextHookEx(NextMouseHook, nCode, wParam, lParam);
