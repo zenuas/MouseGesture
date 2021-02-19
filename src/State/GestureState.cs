@@ -3,10 +3,10 @@ using System.Collections.Generic;
 
 namespace State
 {
-    public class GestureState : IState, IEvent
+    public class GestureState : IState
     {
         public IAction Action { get; set; } = new NullAction();
         public List<IState> Nexts { get; } = new List<IState>();
-        public Action Fire { get; set; } = () => { };
+        public Action ReleaseAction { get; set; } = () => { };
     }
 }

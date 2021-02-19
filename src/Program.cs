@@ -20,7 +20,7 @@ namespace MouseGesture
         static bool EventFired = false;
 
         [STAThread]
-        static void Main(string[] args)
+        public static void Main(string[] args)
         {
             _ = Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
@@ -34,10 +34,10 @@ namespace MouseGesture
             };
             r.Nexts.Add(new LockerState { Action = new WheelAction { Direction = WheelAction.WheelDirection.Up }, Fire = () => Debug.WriteLine("Wheel Up") });
             r.Nexts.Add(new LockerState { Action = new WheelAction { Direction = WheelAction.WheelDirection.Down }, Fire = () => Debug.WriteLine("Wheel Down") });
-            r.Nexts.Add(new GestureState { Action = new MouseMoveAction { Direction = MouseMoveAction.StrokeDirection.Up }, Fire = () => Debug.WriteLine("Move Up") });
-            r.Nexts.Add(new GestureState { Action = new MouseMoveAction { Direction = MouseMoveAction.StrokeDirection.Down }, Fire = () => Debug.WriteLine("Move Down") });
-            r.Nexts.Add(new GestureState { Action = new MouseMoveAction { Direction = MouseMoveAction.StrokeDirection.Left }, Fire = () => Debug.WriteLine("Move Left") });
-            r.Nexts.Add(new GestureState { Action = new MouseMoveAction { Direction = MouseMoveAction.StrokeDirection.Right }, Fire = () => Debug.WriteLine("Move Right") });
+            _ = AddMouseMove(r, MouseMoveAction.StrokeDirection.Up, () => Debug.WriteLine("Move Up"));
+            _ = AddMouseMove(r, MouseMoveAction.StrokeDirection.Down, () => Debug.WriteLine("Move Down"));
+            _ = AddMouseMove(r, MouseMoveAction.StrokeDirection.Left, () => Debug.WriteLine("Move Left"));
+            _ = AddMouseMove(r, MouseMoveAction.StrokeDirection.Right, () => Debug.WriteLine("Move Right"));
             Root.Nexts.Add(r);
 
             var hInstance = Kernel32.GetModuleHandle(null);
@@ -46,7 +46,28 @@ namespace MouseGesture
             Application.Run(new Form());
         }
 
-        static int MouseHookProc(HOOKCODES nCode, WM_MESSAGE wParam, IntPtr lParam)
+        public static IState AddMouseMove(IState r, MouseMoveAction.StrokeDirection stroke, Action release_action)
+        {
+            IState? find(MouseMoveAction.StrokeDirection d) => r.Nexts.FindFirstOrNull(x => x.Action is MouseMoveAction move && move.Direction == d);
+
+            var next = find(stroke);
+            if (next is GestureState ges)
+            {
+                var prev = ges.ReleaseAction;
+                ges.ReleaseAction = () => { prev(); release_action(); };
+                return ges;
+            }
+
+            GestureState addf(IState s, MouseMoveAction.StrokeDirection d, Action f) => new GestureState { Action = new MouseMoveAction { Direction = d }, ReleaseAction = f }.Return(x => s.Nexts.Add(x));
+            var p = addf(r, stroke, release_action);
+            if (stroke != MouseMoveAction.StrokeDirection.Up) _ = addf(p, MouseMoveAction.StrokeDirection.Up, () => { });
+            if (stroke != MouseMoveAction.StrokeDirection.Down) _ = addf(p, MouseMoveAction.StrokeDirection.Down, () => { });
+            if (stroke != MouseMoveAction.StrokeDirection.Left) _ = addf(p, MouseMoveAction.StrokeDirection.Left, () => { });
+            if (stroke != MouseMoveAction.StrokeDirection.Right) _ = addf(p, MouseMoveAction.StrokeDirection.Right, () => { });
+            return p;
+        }
+
+        public static int MouseHookProc(HOOKCODES nCode, WM_MESSAGE wParam, IntPtr lParam)
         {
             if (nCode >= HOOKCODES.HC_ACTION)
             {
@@ -100,6 +121,11 @@ namespace MouseGesture
             var fired = EventFired;
             var istop = TopState == CurrentState;
             if (!fired && istop) TopState!.NoActionRelease();
+            if (CurrentState is GestureState ges)
+            {
+                ges.ReleaseAction();
+                fired = true;
+            }
             CurrentState = Root;
             TopState = null;
             EventFired = false;
