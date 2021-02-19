@@ -12,5 +12,9 @@ namespace Win32API
 
         [DllImport("user32")]
         public static extern int CallNextHookEx(IntPtr hhk, HOOKCODES nCode, WM_MESSAGE wParam, IntPtr lParam);
+
+        [DllImport("user32", EntryPoint = "GetAsyncKeyState")]
+        public static extern short GetAsyncKeyState_(int vKey);
+        public static bool GetAsyncKeyState(VK_VIRTUALKEY vKey) => GetAsyncKeyState_((int)vKey) < 0;
     }
 }

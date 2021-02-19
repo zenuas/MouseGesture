@@ -4,8 +4,7 @@ namespace State
 {
     public class XButtonAction : IAction
     {
-        public WM_MESSAGE Message { get; set; } = WM_MESSAGE.WM_XBUTTONDOWN;
-        public WM_MESSAGE Release { get; set; } = WM_MESSAGE.WM_XBUTTONUP;
+        public WM_MESSAGE Message { get; set; } = WM_MESSAGE.WM_XBUTTONUP;
         public short Button { get; set; } = XBUTTON.XBUTTON1;
     }
 }

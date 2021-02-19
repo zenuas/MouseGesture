@@ -41,6 +41,15 @@ namespace MouseGesture
             _ = AddMouseMove(r, MouseMoveAction.StrokeDirection.Right, () => Debug.WriteLine("Move Right"));
             Root.Nexts.Add(r);
 
+            var xb1 = new HoldState
+            {
+                Action = new XButtonAction { Message = WM_MESSAGE.WM_XBUTTONDOWN, Button = XBUTTON.XBUTTON1 },
+                Release = new XButtonAction { Message = WM_MESSAGE.WM_XBUTTONUP, Button = XBUTTON.XBUTTON1 },
+                //Release = new AnyAction { Any = () => User32.GetAsyncKeyState(VK_VIRTUALKEY.VK_XBUTTON1) },
+                NoActionRelease = () => Debug.WriteLine("XButton1 NoAction")
+            };
+            Root.Nexts.Add(xb1);
+
             TimerEvent.Interval = 50;
             TimerEvent.Tick += new EventHandler(TimerProc);
             TimerEvent.Enabled = true;
@@ -56,6 +65,7 @@ namespace MouseGesture
             lock (TimerEvent)
             {
                 LastCursorPosition = Cursor.Position;
+                if (TopState?.Release is AnyAction an && an.Any()) _ = ReleaseState();
             }
         }
 
@@ -111,7 +121,7 @@ namespace MouseGesture
                             nexts = CurrentState.Nexts.Where(x => ChooseAction(x.Action, wParam)).ToList();
                             break;
                     }
-                    if ((nexts is null || nexts.Count == 0) && TopState is { } && ChooseAction(TopState.Release, wParam))
+                    if ((nexts is null || nexts.Count == 0) && TopState is { } && ChooseAction(TopState.Release, wParam, lParam))
                     {
                         if (ReleaseState()) return 1;
                     }
@@ -133,7 +143,6 @@ namespace MouseGesture
 
         public static bool ReleaseState()
         {
-
             var fired = EventFired;
             var istop = TopState == CurrentState;
             if (!fired && istop) TopState!.NoActionRelease();
@@ -147,6 +156,12 @@ namespace MouseGesture
             EventFired = false;
             return fired;
         }
+
+        public static bool ChooseAction(IAction x, WM_MESSAGE m, IntPtr p) =>
+            x is NullAction ||
+            (x is AnyAction an && an.Any()) ||
+            (x is XButtonAction xb && m == WM_MESSAGE.WM_XBUTTONUP && PtrToStructure<MSLLHOOKSTRUCT>(p).mouseData.xbutton.type == xb.Button) ||
+            (x is MessageAction msg && msg.Message == m);
 
         public static bool ChooseAction(IAction x, WM_MESSAGE m) => x is NullAction || (x is MessageAction msg && msg.Message == m);
 
